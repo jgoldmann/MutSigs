@@ -1,0 +1,81 @@
+---
+output:
+  md_document:
+    variant: markdown_github
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "README-"
+)
+```
+
+# MutSigs
+
+Fit known mutation signatures to collections of mutations.
+
+## Example
+
+We will fit COSMIC signatures to test data.
+
+```{r setup}
+library(MutSigs)
+library(tidyverse)
+```
+
+
+First, generate test data:
+
+```{r testData}
+possibleSurroundings <-
+  expand.grid(
+    fistLetter=c("A", "C", "G", "T"),
+    secondLetter=".",
+    thirdLetter=c("A", "C", "G", "T")) %>%
+  unite("surrounding", fistLetter, secondLetter, thirdLetter, sep="") %>%
+  pull(surrounding)
+
+possibleSubstitutions <-
+  c("C>A", "C>G", "C>T", "T>A", "T>C", "T>G")
+
+n <- 1000
+set.seed(1234)
+
+testData <- data.frame(
+  surrounding = sample(possibleSurroundings, n, replace = TRUE),
+  substitution = sample(possibleSubstitutions, n, replace = TRUE),
+  group = sample(c("A", "B"),                n, replace = TRUE)
+)
+```
+
+Second, perform the fitting:
+
+```{r fitting}
+result <- assessSignatures(testData,
+                           group="group")
+```
+
+Finally, visualize the result:
+
+```{r visualize}
+
+result %>%
+  separate(signature, c("sign", "signatureNr"), sep=10) %>%
+  mutate(signatureNr = as.numeric(signatureNr)) %>%
+  ggplot(aes(x=signatureNr, 
+             y=relC, 
+             fill=group,
+             ymin=relC-0.5*relSd,
+             ymax=relC+0.5*relSd)) + 
+  geom_bar(stat="identity", position="dodge") + 
+  geom_errorbar(position="dodge") +
+  geom_errorbar(position ="dodge",
+                aes(ymin=relci95lower,
+                    ymax=relci95upper),
+                lty=2) +
+  labs(y="relative contribution", x="cancer mutation signature nr.")
+```

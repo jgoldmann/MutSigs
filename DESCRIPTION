@@ -3,8 +3,7 @@ Type: Package
 Title: Jakob's functions for analysing mutation signatures
 Version: 0.1.0
 Authors@R: person("Jakob", "Goldmann", email="jakob.goldmann@mail.de", role = c("aut", "cre"))
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Description: Fit known mutation signatures to collections of mutations.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
