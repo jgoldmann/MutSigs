@@ -2,28 +2,42 @@
 
 resampleContributions <- function(phasedDNMs, cancer_signatures, n, group = "parent", rnd.seed = 1234) {
   stopifnot(is.numeric(n) & length(n) == 1)
-  stopifnot(is.data.frame(phasedDNMs) & all(c("surrounding", "substitution", group) %in% colnames(phasedDNMs)))
+  if(!is.na(group)){
+    stopifnot(is.data.frame(phasedDNMs) & all(c("surrounding", "substitution", group) %in% colnames(phasedDNMs)))
+  } else {
+    stopifnot(is.data.frame(phasedDNMs) & all(c("surrounding", "substitution") %in% colnames(phasedDNMs)))
+  }
 
   sampleAndFit <- function(i){
     set.seed(rnd.seed*i)
     DNMsubs <- phasedDNMs[sample(1:nrow(phasedDNMs), replace = TRUE), , drop=FALSE]
-    DNMsubs_tbl <- as.data.frame(table("context" = DNMsubs$surrounding,
-                                       "substitution" = DNMsubs$substitution,
-                                       "group" = DNMsubs[,group]))
-    fit_res_i <-
-      DNMsubs_tbl %>%
-      unite(mutation, substitution, context) %>%
-      spread(group, Freq) %>%
-      dplyr::select(-mutation) %>%
-      fit_to_signatures(cancer_signatures)
-
+    if(is.na(group)) {
+      DNMsubs_tbl <- as.data.frame(table("context" = DNMsubs$surrounding,
+                                         "substitution" = DNMsubs$substitution))
+      fit_res_i <-
+        DNMsubs_tbl %>%
+        unite(mutation, substitution, context) %>%
+        dplyr::select(-mutation) %>%
+        fit_to_signatures(cancer_signatures)
+    } else {
+      DNMsubs_tbl <- as.data.frame(table("context" = DNMsubs$surrounding,
+                                         "substitution" = DNMsubs$substitution,
+                                         "group" = DNMsubs[,group]))
+      fit_res_i <-
+        DNMsubs_tbl %>%
+        unite(mutation, substitution, context) %>%
+        spread(group, Freq) %>%
+        dplyr::select(-mutation) %>%
+        fit_to_signatures(cancer_signatures)
+    }
     return(foreach(j=1:length(fit_res_i), .combine = cbind) %do% {fit_res_i[[j]]$x})
   }
 
   contributions <-
     foreach(i=1:n) %do% sampleAndFit(i)
 
-  ctbA <- abind(contributions, along=3)
+  dims <- if_else(is.na(group), 2, 3)
+  ctbA <- abind(contributions, along=dims)
   return(ctbA)
 }
 
@@ -37,7 +51,6 @@ fit_to_signatures <- function(mut_matrix, signatures) {
   lsq_fits <- apply(mut_matrix, 2, function(x){nnls(signatures, x)})
   return(lsq_fits)
 }
-
 
 
 
@@ -115,5 +128,55 @@ assessSignatures <- function(DNMs,
 }
 
 
+
+assessSingleGroup <- function(testData,
+                  signatures = cancer_signatures,
+                  rnd.seed = 1234,
+                  n=100) {
+  require(tidyverse)
+  require(nnls)
+  require(foreach)
+  require(abind)
+
+  stopifnot(c("surrounding", "substitution") %in% colnames(testData))
+  stopifnot(dim(signatures)[[1]]==96)
+  stopifnot(is.numeric(rnd.seed))
+  stopifnot(is.numeric(n))
+
+  triNucSubs <- as.data.frame(table(testData$surrounding,
+                                    testData$substitution))
+  colnames(triNucSubs) <- c("context", "substitution", "frequency")
+  fit_res <-
+    triNucSubs %>%
+    unite(mutation, substitution, context) %>%
+    dplyr::select(-mutation) %>%
+    fit_to_signatures(signatures)
+  fit_resContribs <- foreach(j=1:length(fit_res), .combine = cbind) %do% {fit_res[[j]]$x}
+
+  contributionsArray <- resampleContributions(testData, signatures, n, group=NA, rnd.seed = rnd.seed)
+  contributionsSd <- apply(contributionsArray, 1, sd)
+  contributions95lb <- apply(contributionsArray, 1, function(x){quantile(x, 0.975)})
+  contributions95ub <- apply(contributionsArray, 1, function(x){quantile(x, 0.025)})
+
+  ctrDf <-
+    data.frame("contrib" = fit_resContribs,
+               "sdv" = contributionsSd,
+               "ci95upper" = contributions95lb,
+               "ci95lower" = contributions95ub)
+  ctrDf$signature <- colnames(signatures)
+  relContribs <-
+    ctrDf %>%
+    dplyr::mutate(relC=contrib/sum(contrib),
+                  relSd=sdv/sum(contrib))
+
+  relContribs$signature <-  factor(relContribs$signature,
+                                   levels = unique(relContribs$signature)[order(as.numeric(substring(unique(relContribs$signature), 11)))],
+                                   ordered = TRUE)
+  relContribs %>%
+    mutate(relci95upper = ci95upper/sum(contrib),
+           relci95lower = ci95lower/sum(contrib),
+           relDeviance = fit_res$frequency$deviance/nrow(testData)) %>%
+    return()
+}
 
 
