@@ -45,22 +45,24 @@ fit_to_signatures <- function(mut_matrix, signatures) {
 #'
 #' @param DNMs A data.frame that contains information about the mutations.
 #'        Necessary columns are \code{surrounding}, \code{substitution} plus a column  with information about the groups.
-#' @param cancer_signatures A matrix with relative abundances of all 96 mutation types in the rows and all signatures to be investigated in the columns.
+#' @param signatures A matrix with relative abundances of all 96 mutation types in the rows and all signatures to be investigated in the columns.
 #' @param group Name of the column in \code{DNMs} to base the groups upon.
 #' @param rnd.seed Random seed to involve in the resampling of the fitting.
 #' @param n Number of resamplings to be done.
 assessSignatures <- function(DNMs,
-                             cancer_signatures = cancer_signatures,
+                             signatures = cancer_signatures,
                              group = "parent",
                              rnd.seed = 1234,
                              n=1000) {
   require(tidyverse)
   require(nnls)
   require(foreach)
+  require(abind)
+
   stopifnot(c("surrounding", "substitution", group) %in% colnames(DNMs))
-  stopifnot(dim(cancer_signatures)[[1]]==96)
-  stopifnot(is.integer(rnd.seed))
-  stopifnot(is.infinite(n))
+  stopifnot(dim(signatures)[[1]]==96)
+  stopifnot(is.numeric(rnd.seed))
+  stopifnot(is.numeric(n))
 
   triNucSubs <- as.data.frame(table(DNMs$surrounding,
                                     DNMs$substitution,
@@ -72,11 +74,11 @@ assessSignatures <- function(DNMs,
     unite(mutation, substitution, context) %>%
     spread_(group, "frequency") %>%
     dplyr::select(-mutation) %>%
-    fit_to_signatures(cancer_signatures)
+    fit_to_signatures(signatures)
   fit_resContribs <- foreach(j=1:length(fit_res), .combine = cbind) %do% {fit_res[[j]]$x}
   colnames(fit_resContribs) <- names(fit_res)
 
-  contributionsArray <- resampleContributions(DNMs, cancer_signatures, n, group, rnd.seed = rnd.seed)
+  contributionsArray <- resampleContributions(DNMs, signatures, n, group, rnd.seed = rnd.seed)
   contributionsSd <- apply(contributionsArray, c(1,2), sd)
   contributions95lb <- apply(contributionsArray, c(1,2), function(x){quantile(x, 0.975)})
   contributions95ub <- apply(contributionsArray, c(1,2), function(x){quantile(x, 0.025)})
@@ -86,7 +88,7 @@ assessSignatures <- function(DNMs,
           gather_(as.data.frame(contributionsSd), group, "sdv",      colnames(contributionsSd)),
           gather_(as.data.frame(contributions95lb), group, "ci95upper",      colnames(contributions95lb)),
           gather_(as.data.frame(contributions95ub), group, "ci95lower",      colnames(contributions95ub)))
-  ctrDf$signature <- colnames(cancer_signatures)
+  ctrDf$signature <- colnames(signatures)
 
   relContribs <-
     ctrDf %>%
