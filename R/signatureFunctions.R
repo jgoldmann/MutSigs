@@ -66,7 +66,7 @@ assessSignatures <- function(DNMs,
 
   triNucSubs <- as.data.frame(table(DNMs$surrounding,
                                     DNMs$substitution,
-                                    DNMs[,group]))
+                                    DNMs %>% pull(group)))
   colnames(triNucSubs) <- c("context", "substitution", group, "frequency")
 
   fit_res <-
