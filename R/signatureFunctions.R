@@ -22,7 +22,7 @@ resampleContributions <- function(phasedDNMs, cancer_signatures, n, group = "par
     } else {
       DNMsubs_tbl <- as.data.frame(table("context" = DNMsubs$surrounding,
                                          "substitution" = DNMsubs$substitution,
-                                         "group" = DNMsubs[,group]))
+                                         "group" = DNMsubs %>% pull(group)))
       fit_res_i <-
         DNMsubs_tbl %>%
         unite(mutation, substitution, context) %>%
