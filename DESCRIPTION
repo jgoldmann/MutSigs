@@ -11,9 +11,10 @@ Depends: R (>= 3.4.4)
 Suggests: devtools,
     testthat
 Imports:
-  tidyverse,
-  dplyr,
-  nnls,
-  foreach,
-  abind
+    tidyverse,
+    dplyr,
+    nnls,
+    foreach,
+    abind,
+    edgeR
 RoxygenNote: 6.0.1
