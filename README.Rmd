@@ -2,6 +2,8 @@
 output:
   md_document:
     variant: markdown_github
+editor_options: 
+  chunk_output_type: console
 ---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -65,7 +67,7 @@ Finally, visualize the result:
 
 result %>%
   separate(signature, c("sign", "signatureNr"), sep=10) %>%
-  mutate(signatureNr = as.numeric(signatureNr)) %>%
+  mutate(signatureNr = if_else(signatureNr=="", 0, as.numeric(signatureNr))) %>%
   ggplot(aes(x=signatureNr, 
              y=relC, 
              fill=group,
@@ -79,3 +81,5 @@ result %>%
                 lty=2) +
   labs(y="relative contribution", x="cancer mutation signature nr.")
 ```
+
+
